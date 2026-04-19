@@ -99,6 +99,12 @@ https://ldiadam.github.io/jellytube/manifest.json
 
 If your GitHub username or repo name is different, adjust the URL accordingly.
 
+If GitHub Pages redirects to a custom domain you did not mean to use, either remove that custom domain in GitHub Pages settings or use the raw manifest URL instead:
+
+```text
+https://raw.githubusercontent.com/ldiadam/jellytube/main/docs/manifest.json
+```
+
 Then add this repository in Jellyfin:
 
 ```text

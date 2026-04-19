@@ -11,7 +11,7 @@
         "version": "0.1.0.0",
         "changelog": "Initial local-cache metadata plugin scaffold for Jellyfin 10.11.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://ldiadam.github.io/jellytube/Jellyfin.Plugin.YouTubeChannelCache_0.1.0.0.zip",
+        "sourceUrl": "https://raw.githubusercontent.com/ldiadam/jellytube/main/docs/Jellyfin.Plugin.YouTubeChannelCache_0.1.0.0.zip",
         "checksum": "9c1ee3c5b42fc1fe5054047336dac401",
         "timestamp": "2026-04-19T00:00:00Z"
       }
