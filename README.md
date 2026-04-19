@@ -183,3 +183,38 @@ services:
 ```
 
 If scheduled refresh is enabled, `yt-dlp` must also exist inside the Jellyfin container.
+
+## ZimaOS / Docker Cache Sync
+
+On ZimaOS App Store Jellyfin, the Jellyfin container usually does not include `yt-dlp`. In that setup, disable the plugin's scheduled refresh and run the cache sync outside Jellyfin.
+
+In the plugin config:
+
+```text
+Enable scheduled refresh: off
+Cache Directory: /cache/youtube-channels
+```
+
+Then run a sidecar or host job that writes the same host folder mounted into Jellyfin.
+
+Example one-off sync from a machine with Python and `yt-dlp`:
+
+```bash
+python3 scripts/sync-youtube-cache.py \
+  --cache-dir /PATH/TO/HOST/youtube-cache \
+  --channel-url 'https://www.youtube.com/@museidwonderland'
+```
+
+Example with a channel list:
+
+```bash
+python3 scripts/sync-youtube-cache.py \
+  --cache-dir /PATH/TO/HOST/youtube-cache \
+  --channels-file channels.txt
+```
+
+The Jellyfin container must mount that host folder to the plugin's cache directory. For example:
+
+```text
+/PATH/TO/HOST/youtube-cache -> /cache/youtube-channels
+```
