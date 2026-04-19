@@ -1,0 +1,95 @@
+<div id="YouTubeChannelCacheConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+  <div data-role="content">
+    <div class="content-primary">
+      <form id="YouTubeChannelCacheConfigForm">
+        <div class="inputContainer">
+          <label class="inputLabel inputLabelUnfocused" for="CacheDirectory">Cache Directory</label>
+          <input id="CacheDirectory" name="CacheDirectory" type="text" is="emby-input" />
+        </div>
+
+        <label class="checkboxContainer">
+          <input id="EnableScheduledRefresh" name="EnableScheduledRefresh" type="checkbox" is="emby-checkbox" />
+          <span>Enable scheduled refresh</span>
+        </label>
+
+        <div class="inputContainer">
+          <label class="inputLabel inputLabelUnfocused" for="RefreshIntervalMinutes">Refresh Interval Minutes</label>
+          <input id="RefreshIntervalMinutes" name="RefreshIntervalMinutes" type="number" min="15" step="15" is="emby-input" />
+        </div>
+
+        <label class="checkboxContainer">
+          <input id="DownloadMissingMetadataOnly" name="DownloadMissingMetadataOnly" type="checkbox" is="emby-checkbox" />
+          <span>Download missing metadata only</span>
+        </label>
+
+        <div class="inputContainer">
+          <label class="inputLabel inputLabelUnfocused" for="YtDlpPath">yt-dlp Path</label>
+          <input id="YtDlpPath" name="YtDlpPath" type="text" is="emby-input" />
+        </div>
+
+        <div class="inputContainer">
+          <label class="inputLabel inputLabelUnfocused" for="ChannelUrls">Channel URLs (one per line)</label>
+          <textarea id="ChannelUrls" name="ChannelUrls" is="emby-input"></textarea>
+        </div>
+
+        <button type="submit" class="raised button-submit block emby-button">
+          <span>Save</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    (function () {
+      const pluginId = "5d3f0fcb-4412-4f8f-b7b6-d7ab2cd2a101";
+
+      function page() {
+        return document.querySelector("#YouTubeChannelCacheConfigPage");
+      }
+
+      function form() {
+        return page().querySelector("#YouTubeChannelCacheConfigForm");
+      }
+
+      page().addEventListener("pageshow", function () {
+        Dashboard.showLoadingMsg();
+
+        ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+          const currentForm = form();
+          currentForm.CacheDirectory.value = config.CacheDirectory || "";
+          currentForm.EnableScheduledRefresh.checked = config.EnableScheduledRefresh !== false;
+          currentForm.RefreshIntervalMinutes.value = config.RefreshIntervalMinutes || 360;
+          currentForm.DownloadMissingMetadataOnly.checked = config.DownloadMissingMetadataOnly !== false;
+          currentForm.YtDlpPath.value = config.YtDlpPath || "yt-dlp";
+          currentForm.ChannelUrls.value = (config.ChannelUrls || []).join("\n");
+
+          Dashboard.hideLoadingMsg();
+        });
+      });
+
+      form().addEventListener("submit", function (event) {
+        event.preventDefault();
+        Dashboard.showLoadingMsg();
+
+        ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+          const currentForm = form();
+          config.CacheDirectory = currentForm.CacheDirectory.value;
+          config.EnableScheduledRefresh = currentForm.EnableScheduledRefresh.checked;
+          config.RefreshIntervalMinutes = parseInt(currentForm.RefreshIntervalMinutes.value, 10) || 360;
+          config.DownloadMissingMetadataOnly = currentForm.DownloadMissingMetadataOnly.checked;
+          config.YtDlpPath = currentForm.YtDlpPath.value || "yt-dlp";
+          config.ChannelUrls = currentForm.ChannelUrls.value
+            .split(/\r?\n/)
+            .map(function (value) { return value.trim(); })
+            .filter(Boolean);
+
+          ApiClient.updatePluginConfiguration(pluginId, config).then(function () {
+            Dashboard.processPluginConfigurationUpdateResult();
+          });
+        });
+
+        return false;
+      });
+    })();
+  </script>
+</div>

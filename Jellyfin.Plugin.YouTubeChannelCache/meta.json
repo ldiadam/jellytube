@@ -1,0 +1,12 @@
+{
+  "category": "Metadata",
+  "description": "Reads locally cached YouTube channel metadata and video manifests for Jellyfin.",
+  "guid": "5d3f0fcb-4412-4f8f-b7b6-d7ab2cd2a101",
+  "name": "YouTube Channel Cache",
+  "overview": "Local YouTube channel metadata cache reader for Jellyfin.",
+  "owner": "rinaldiadam",
+  "targetAbi": "10.11.0.0",
+  "timestamp": "2026-04-19T00:00:00.0000000Z",
+  "version": "0.1.0.0",
+  "status": "Active"
+}
