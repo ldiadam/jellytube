@@ -23,7 +23,17 @@ async function api(path, options = {}) {
     throw new Error(payload.detail || response.statusText);
   }
 
-  return response.json();
+  return response.status === 204 ? null : response.json();
+}
+
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;",
+  }[char]));
 }
 
 function formatDate(value) {
@@ -37,47 +47,136 @@ function formatDuration(seconds) {
   return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`;
 }
 
+function formatBytes(bytes) {
+  if (!bytes) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
+}
+
+function channelStatus(channel) {
+  if (channel.lastSuccess === true) return `<span class="pill good">OK</span>`;
+  if (channel.lastSuccess === false) return `<span class="pill bad">Failed</span>`;
+  return `<span class="pill muted">New</span>`;
+}
+
 function renderChannels() {
   const list = $("channelList");
+  $("sourceCount").textContent = `${state.config.channels.length} sources`;
   list.innerHTML = "";
 
   if (!state.config.channels.length) {
-    list.innerHTML = `<p class="hint">No channels yet. Add a channel or playlist URL to start syncing.</p>`;
+    list.innerHTML = `<p class="hint">No sources yet. Add a YouTube channel or playlist URL.</p>`;
     return;
   }
 
   for (const channel of state.config.channels) {
     const row = document.createElement("div");
-    row.className = "channel-row";
+    row.className = "source-row";
     row.innerHTML = `
-      <div>
-        <strong>${channel.label || "Unnamed source"}</strong>
-        <span>${channel.url}</span>
+      <div class="source-main">
+        <div>${channelStatus(channel)} <strong>${esc(channel.label || "Unnamed source")}</strong></div>
+        <span>${esc(channel.url)}</span>
+        <small>Limit ${channel.playlistEnd || state.config.playlistEnd || "all"} · Last ${formatDate(channel.lastFinishedAt)} · Exit ${channel.lastExitCode ?? "-"}</small>
       </div>
-      <label class="switch">
+      <label class="switch mini">
         <input type="checkbox" ${channel.enabled ? "checked" : ""} data-toggle="${channel.id}">
         <span>${channel.enabled ? "On" : "Off"}</span>
       </label>
-      <button data-delete="${channel.id}">Delete</button>
+      <div class="row-actions">
+        <button data-run="${channel.id}">Run</button>
+        <button data-edit="${channel.id}">Edit</button>
+        <button class="danger" data-delete="${channel.id}">Delete</button>
+      </div>
     `;
     list.appendChild(row);
   }
 
   list.querySelectorAll("[data-delete]").forEach((button) => {
     button.addEventListener("click", async () => {
+      if (!confirm("Delete this source?")) return;
       await api(`/api/channels/${button.dataset.delete}`, { method: "DELETE" });
       await loadConfig();
-      toast("Channel deleted");
+      toast("Source deleted");
     });
+  });
+
+  list.querySelectorAll("[data-run]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await api("/api/sync/start", {
+        method: "POST",
+        body: JSON.stringify({ channelId: button.dataset.run }),
+      });
+      await loadStatus();
+      toast("Source sync started");
+    });
+  });
+
+  list.querySelectorAll("[data-edit]").forEach((button) => {
+    button.addEventListener("click", () => openChannelDialog(button.dataset.edit));
   });
 
   list.querySelectorAll("[data-toggle]").forEach((input) => {
     input.addEventListener("change", async () => {
-      const channel = state.config.channels.find((item) => item.id === input.dataset.toggle);
-      channel.enabled = input.checked;
-      await saveFullConfig();
+      await api(`/api/channels/${input.dataset.toggle}`, {
+        method: "PUT",
+        body: JSON.stringify({ enabled: input.checked }),
+      });
       await loadConfig();
-      toast("Channel updated");
+      toast("Source updated");
+    });
+  });
+}
+
+function renderCookies() {
+  const profiles = state.status?.cookies?.profiles || state.config.cookies || [];
+  const activeId = state.status?.cookies?.activeId || state.config.activeCookieId;
+  const list = $("cookieProfiles");
+  $("cookieCount").textContent = `${profiles.length} profiles`;
+  list.innerHTML = "";
+
+  if (!profiles.length) {
+    list.innerHTML = `<p class="hint">No cookie profiles. Paste Netscape-format cookies below.</p>`;
+    return;
+  }
+
+  for (const profile of profiles) {
+    const row = document.createElement("div");
+    row.className = "cookie-row";
+    row.innerHTML = `
+      <div>
+        <strong>${esc(profile.name)}</strong>
+        <span>${esc(profile.path)}</span>
+        <small>${formatBytes(profile.size)} · ${profile.looksNetscape ? "Netscape" : "Bad format"} · ${formatDate(profile.updatedAt)}</small>
+      </div>
+      <span class="pill ${profile.id === activeId ? "good" : "muted"}">${profile.id === activeId ? "Active" : "Idle"}</span>
+      <div class="row-actions">
+        <button data-activate-cookie="${profile.id}">Use</button>
+        <button class="danger" data-delete-cookie="${profile.id}">Delete</button>
+      </div>
+    `;
+    list.appendChild(row);
+  }
+
+  list.querySelectorAll("[data-activate-cookie]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await api(`/api/cookies/${button.dataset.activateCookie}/activate`, { method: "POST", body: "{}" });
+      await refreshAll();
+      toast("Cookie profile activated");
+    });
+  });
+
+  list.querySelectorAll("[data-delete-cookie]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      if (!confirm("Delete this cookie profile?")) return;
+      await api(`/api/cookies/${button.dataset.deleteCookie}`, { method: "DELETE" });
+      await refreshAll();
+      toast("Cookie profile deleted");
     });
   });
 }
@@ -87,37 +186,76 @@ function renderConfig() {
   $("intervalHours").value = state.config.intervalHours;
   $("playlistEnd").value = state.config.playlistEnd;
   $("sleepSeconds").value = state.config.sleepSeconds;
+  $("maxRecentFiles").value = state.config.maxRecentFiles;
   $("formatSelector").value = state.config.formatSelector;
+  $("mergeOutputFormat").value = state.config.mergeOutputFormat;
   $("outputTemplate").value = state.config.outputTemplate;
+  $("archivePath").value = state.config.archivePath;
+  $("writeInfoJson").checked = state.config.writeInfoJson;
+  $("writeThumbnail").checked = state.config.writeThumbnail;
+  $("convertThumbnails").checked = state.config.convertThumbnails;
+  $("embedMetadata").checked = state.config.embedMetadata;
   renderChannels();
+}
+
+function renderRecentFiles() {
+  const list = $("recentFiles");
+  const recent = state.status.recent || [];
+  list.innerHTML = "";
+  $("thumbnailCount").textContent = `${state.status.counts.thumbnails} thumbnails`;
+
+  if (!recent.length) {
+    list.innerHTML = `<p class="hint">No downloaded files yet.</p>`;
+    return;
+  }
+
+  for (const file of recent) {
+    const row = document.createElement("div");
+    row.className = "file-row";
+    row.innerHTML = `
+      <div>
+        <strong>${esc(file.path)}</strong>
+        <span>${file.kind} · ${formatBytes(file.size)} · ${formatDate(file.modifiedAt)}</span>
+      </div>
+    `;
+    list.appendChild(row);
+  }
 }
 
 function renderStatus() {
   const status = state.status;
   const runState = $("runState");
+  const subtext = $("runSubtext");
 
   if (status.running) {
-    runState.textContent = `Syncing ${status.currentChannel || ""}`;
+    runState.textContent = "Sync in progress";
     runState.className = "status-warn";
+    subtext.textContent = status.currentChannel || "Running yt-dlp.";
   } else if (status.lastSuccess === false) {
     runState.textContent = "Last sync had errors";
     runState.className = "status-bad";
+    subtext.textContent = `Last run ${formatDuration(status.lastRunSeconds)}. Check logs for details.`;
   } else if (status.lastSuccess === true) {
-    runState.textContent = `Ready. Last run ${formatDuration(status.lastRunSeconds)}`;
+    runState.textContent = "Ready";
     runState.className = "status-good";
+    subtext.textContent = `Last run completed in ${formatDuration(status.lastRunSeconds)}.`;
   } else {
     runState.textContent = "Ready";
     runState.className = "";
+    subtext.textContent = "Add sources, cookies, then run a sync.";
   }
 
   $("nextRun").textContent = status.autoSync ? formatDate(status.nextRunAt) : "Manual";
   $("videoCount").textContent = status.counts.videos;
   $("metadataCount").textContent = status.counts.metadata;
+  $("storageBytes").textContent = formatBytes(status.bytes);
 
   const cookies = status.cookies;
-  $("cookiesPath").textContent = `${cookies.path} · ${cookies.exists ? `${cookies.size} bytes` : "missing"}`;
-  $("cookiesState").textContent = cookies.looksNetscape ? "Valid" : cookies.exists ? "Bad format" : "Missing";
-  $("cookiesState").className = cookies.looksNetscape ? "status-good" : "status-bad";
+  const cookieGood = cookies.exists && cookies.looksNetscape;
+  $("railCookieText").textContent = cookieGood ? `Active: ${cookies.name}` : "Cookie profile missing or invalid";
+  $("activeCookieDot").className = `dot ${cookieGood ? "good" : "bad"}`;
+  renderCookies();
+  renderRecentFiles();
 }
 
 async function loadConfig() {
@@ -143,16 +281,51 @@ async function saveFullConfig() {
   });
 }
 
-async function saveSettings() {
-  state.config.autoSync = $("autoSync").checked;
-  state.config.intervalHours = Number($("intervalHours").value || 6);
-  state.config.playlistEnd = Number($("playlistEnd").value || 0);
-  state.config.sleepSeconds = Number($("sleepSeconds").value || 0);
-  state.config.formatSelector = $("formatSelector").value || "bv*+ba/b";
-  state.config.outputTemplate = $("outputTemplate").value;
-  await saveFullConfig();
+function collectSchedule() {
+  return {
+    autoSync: $("autoSync").checked,
+    intervalHours: Number($("intervalHours").value || 6),
+    playlistEnd: Number($("playlistEnd").value || 0),
+    sleepSeconds: Number($("sleepSeconds").value || 0),
+    maxRecentFiles: Number($("maxRecentFiles").value || 24),
+  };
+}
+
+function collectDownload() {
+  return {
+    formatSelector: $("formatSelector").value || "bv*+ba/b",
+    mergeOutputFormat: $("mergeOutputFormat").value || "mp4",
+    outputTemplate: $("outputTemplate").value,
+    archivePath: $("archivePath").value,
+    writeInfoJson: $("writeInfoJson").checked,
+    writeThumbnail: $("writeThumbnail").checked,
+    convertThumbnails: $("convertThumbnails").checked,
+    embedMetadata: $("embedMetadata").checked,
+  };
+}
+
+async function saveConfigPatch(patch, message) {
+  state.config = await api("/api/config", {
+    method: "PUT",
+    body: JSON.stringify(patch),
+  });
+  renderConfig();
   await loadStatus();
-  toast("Settings saved");
+  toast(message);
+}
+
+function openChannelDialog(channelId) {
+  const channel = state.config.channels.find((item) => item.id === channelId);
+  if (!channel) return;
+
+  $("editChannelId").value = channel.id;
+  $("editChannelUrl").value = channel.url;
+  $("editChannelLabel").value = channel.label || "";
+  $("editChannelLimit").value = channel.playlistEnd || 0;
+  $("editChannelFormat").value = channel.formatSelector || "";
+  $("editChannelEnabled").checked = channel.enabled;
+  $("dialogTitle").textContent = channel.label || "Source";
+  $("channelDialog").showModal();
 }
 
 function bindEvents() {
@@ -163,15 +336,36 @@ function bindEvents() {
       body: JSON.stringify({
         url: $("channelUrl").value,
         label: $("channelLabel").value,
+        playlistEnd: Number($("channelLimit").value || 0),
       }),
     });
     $("channelUrl").value = "";
     $("channelLabel").value = "";
+    $("channelLimit").value = "";
     await loadConfig();
-    toast("Channel added");
+    toast("Source added");
   });
 
-  $("saveSettings").addEventListener("click", saveSettings);
+  $("saveChannelEdit").addEventListener("click", async (event) => {
+    event.preventDefault();
+    const channelId = $("editChannelId").value;
+    await api(`/api/channels/${channelId}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        url: $("editChannelUrl").value,
+        label: $("editChannelLabel").value,
+        playlistEnd: Number($("editChannelLimit").value || 0),
+        formatSelector: $("editChannelFormat").value,
+        enabled: $("editChannelEnabled").checked,
+      }),
+    });
+    $("channelDialog").close();
+    await loadConfig();
+    toast("Source saved");
+  });
+
+  $("saveSchedule").addEventListener("click", () => saveConfigPatch(collectSchedule(), "Schedule saved"));
+  $("saveDownload").addEventListener("click", () => saveConfigPatch(collectDownload(), "Download options saved"));
 
   $("runNow").addEventListener("click", async () => {
     await api("/api/sync/start", { method: "POST", body: "{}" });
@@ -185,16 +379,58 @@ function bindEvents() {
     toast("Stop requested");
   });
 
+  $("skipRun").addEventListener("click", async () => {
+    await api("/api/schedule/skip", { method: "POST", body: "{}" });
+    await loadStatus();
+    toast("Next run reset");
+  });
+
   $("refreshLogs").addEventListener("click", loadLogs);
+
+  $("clearLogs").addEventListener("click", async () => {
+    await api("/api/logs", { method: "DELETE" });
+    await loadLogs();
+    toast("Logs cleared");
+  });
+
+  $("clearArchive").addEventListener("click", async () => {
+    if (!confirm("Clear the download archive? Existing files remain, but yt-dlp may download them again.")) return;
+    await api("/api/archive", { method: "DELETE" });
+    toast("Archive cleared");
+  });
 
   $("saveCookies").addEventListener("click", async () => {
     await api("/api/cookies", {
       method: "POST",
-      body: JSON.stringify({ content: $("cookiesText").value }),
+      body: JSON.stringify({
+        name: $("cookieName").value || "YouTube cookies",
+        content: $("cookiesText").value,
+        activate: true,
+      }),
     });
     $("cookiesText").value = "";
-    await loadStatus();
-    toast("Cookies saved");
+    $("cookieName").value = "";
+    await refreshAll();
+    toast("Cookie profile created");
+  });
+
+  $("updateActiveCookies").addEventListener("click", async () => {
+    const activeId = state.status?.cookies?.activeId;
+    if (!activeId) {
+      toast("No active cookie profile");
+      return;
+    }
+    await api(`/api/cookies/${activeId}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        name: $("cookieName").value || undefined,
+        content: $("cookiesText").value || undefined,
+      }),
+    });
+    $("cookiesText").value = "";
+    $("cookieName").value = "";
+    await refreshAll();
+    toast("Active cookie profile updated");
   });
 
   $("clearCookiesText").addEventListener("click", () => {

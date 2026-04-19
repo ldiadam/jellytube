@@ -3,39 +3,49 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>YouTube Sync Dashboard</title>
+    <title>JellyTube Dashboard</title>
     <link rel="stylesheet" href="/static/styles.css">
   </head>
   <body>
-    <main class="shell">
+    <main class="app-shell">
       <aside class="rail">
-        <div>
-          <p class="eyebrow">JellyTube</p>
-          <h1>YouTube Sync</h1>
+        <div class="brand">
+          <span class="brand-mark">JT</span>
+          <div>
+            <p class="eyebrow">JellyTube</p>
+            <h1>Sync Control</h1>
+          </div>
         </div>
         <nav>
-          <a href="#status">Status</a>
-          <a href="#channels">Channels</a>
-          <a href="#settings">Schedule</a>
+          <a href="#overview">Overview</a>
+          <a href="#sources">Sources</a>
+          <a href="#cookies">Cookies</a>
+          <a href="#download">Download</a>
           <a href="#logs">Logs</a>
         </nav>
+        <div class="rail-note">
+          <span id="activeCookieDot" class="dot"></span>
+          <span id="railCookieText">Cookie profile unknown</span>
+        </div>
       </aside>
 
       <section class="workspace">
-        <header class="topbar" id="status">
+        <header class="hero" id="overview">
           <div>
-            <p class="eyebrow">Sidecar Dashboard</p>
+            <p class="eyebrow">Runtime</p>
             <h2 id="runState">Loading</h2>
+            <p id="runSubtext" class="subtext">Checking scheduler state.</p>
           </div>
-          <div class="actions">
-            <button id="runNow" class="primary">Run now</button>
-            <button id="stopRun">Stop</button>
+          <div class="hero-actions">
+            <button id="runNow" class="primary">Run all</button>
+            <button id="stopRun" class="danger">Stop</button>
+            <button id="skipRun">Skip next</button>
           </div>
         </header>
 
         <section class="metrics" aria-label="Sync metrics">
           <div class="metric">
-            <span>Next Run</span>
+            <span>Next run</span>
             <strong id="nextRun">-</strong>
           </div>
           <div class="metric">
@@ -47,36 +57,60 @@
             <strong id="metadataCount">0</strong>
           </div>
           <div class="metric">
-            <span>Cookies</span>
-            <strong id="cookiesState">Unknown</strong>
+            <span>Storage</span>
+            <strong id="storageBytes">0 B</strong>
           </div>
         </section>
 
-        <section class="split" id="channels">
-          <div class="panel">
+        <section class="layout-two" id="sources">
+          <section class="surface">
             <div class="section-head">
               <div>
                 <p class="eyebrow">Sources</p>
                 <h3>Channels and Playlists</h3>
               </div>
+              <span id="sourceCount" class="badge">0 sources</span>
             </div>
-            <form id="channelForm" class="inline-form">
+            <form id="channelForm" class="source-form">
               <input id="channelUrl" type="url" placeholder="https://www.youtube.com/@channel or playlist URL" required>
               <input id="channelLabel" type="text" placeholder="Label">
+              <input id="channelLimit" type="number" min="0" step="1" placeholder="Limit">
               <button type="submit" class="primary">Add</button>
             </form>
-            <div id="channelList" class="list"></div>
-          </div>
+            <div id="channelList" class="rows"></div>
+          </section>
 
-          <div class="panel" id="settings">
+          <section class="surface" id="cookies">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Auth</p>
+                <h3>Cookie Profiles</h3>
+              </div>
+              <span id="cookieCount" class="badge">0 profiles</span>
+            </div>
+            <div id="cookieProfiles" class="rows compact"></div>
+            <div class="cookie-editor">
+              <input id="cookieName" type="text" placeholder="Profile name">
+              <textarea id="cookiesText" placeholder="# Netscape HTTP Cookie File&#10;.youtube.com	TRUE	/	TRUE	..."></textarea>
+              <div class="button-row">
+                <button id="saveCookies" class="primary">Create profile</button>
+                <button id="updateActiveCookies">Update active</button>
+                <button id="clearCookiesText">Clear text</button>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <section class="layout-two" id="download">
+          <section class="surface">
             <div class="section-head">
               <div>
                 <p class="eyebrow">Automation</p>
-                <h3>Schedule and Download</h3>
+                <h3>Schedule</h3>
               </div>
               <label class="switch">
                 <input id="autoSync" type="checkbox">
-                <span>Auto</span>
+                <span>Auto sync</span>
               </label>
             </div>
             <div class="settings-grid">
@@ -85,55 +119,118 @@
                 <input id="intervalHours" type="number" min="0.25" step="0.25">
               </label>
               <label>
-                Playlist limit
-                <input id="playlistEnd" type="number" min="0" step="1">
-              </label>
-              <label>
                 Request sleep seconds
                 <input id="sleepSeconds" type="number" min="0" step="1">
               </label>
               <label>
+                Default playlist limit
+                <input id="playlistEnd" type="number" min="0" step="1">
+              </label>
+              <label>
+                Recent file limit
+                <input id="maxRecentFiles" type="number" min="1" step="1">
+              </label>
+            </div>
+            <button id="saveSchedule" class="primary">Save schedule</button>
+          </section>
+
+          <section class="surface">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">yt-dlp</p>
+                <h3>Download Options</h3>
+              </div>
+            </div>
+            <div class="settings-grid">
+              <label>
                 Format selector
                 <input id="formatSelector" type="text">
+              </label>
+              <label>
+                Merge format
+                <input id="mergeOutputFormat" type="text">
               </label>
             </div>
             <label class="wide-label">
               Output template
               <input id="outputTemplate" type="text">
             </label>
-            <button id="saveSettings" class="primary">Save settings</button>
-          </div>
+            <label class="wide-label">
+              Archive path
+              <input id="archivePath" type="text">
+            </label>
+            <div class="toggle-grid">
+              <label class="switch"><input id="writeInfoJson" type="checkbox"><span>Info JSON</span></label>
+              <label class="switch"><input id="writeThumbnail" type="checkbox"><span>Thumbnail</span></label>
+              <label class="switch"><input id="convertThumbnails" type="checkbox"><span>Convert JPG</span></label>
+              <label class="switch"><input id="embedMetadata" type="checkbox"><span>Embed metadata</span></label>
+            </div>
+            <div class="button-row">
+              <button id="saveDownload" class="primary">Save download options</button>
+              <button id="clearArchive" class="danger">Clear archive</button>
+            </div>
+          </section>
         </section>
 
-        <section class="split">
-          <div class="panel">
+        <section class="layout-two">
+          <section class="surface">
             <div class="section-head">
               <div>
-                <p class="eyebrow">Authentication</p>
-                <h3>YouTube Cookies</h3>
+                <p class="eyebrow">Files</p>
+                <h3>Recent Output</h3>
               </div>
+              <span id="thumbnailCount" class="badge">0 thumbnails</span>
             </div>
-            <p class="hint" id="cookiesPath">-</p>
-            <textarea id="cookiesText" placeholder="# Netscape HTTP Cookie File&#10;.youtube.com	TRUE	/	TRUE	..."></textarea>
-            <div class="actions left">
-              <button id="saveCookies" class="primary">Save cookies</button>
-              <button id="clearCookiesText">Clear text</button>
-            </div>
-          </div>
+            <div id="recentFiles" class="rows compact"></div>
+          </section>
 
-          <div class="panel" id="logs">
+          <section class="surface" id="logs">
             <div class="section-head">
               <div>
                 <p class="eyebrow">Runtime</p>
                 <h3>Logs</h3>
               </div>
-              <button id="refreshLogs">Refresh</button>
+              <div class="button-row">
+                <button id="refreshLogs">Refresh</button>
+                <button id="clearLogs" class="danger">Clear</button>
+              </div>
             </div>
             <pre id="logOutput"></pre>
-          </div>
+          </section>
         </section>
       </section>
     </main>
+
+    <dialog id="channelDialog">
+      <form method="dialog" class="dialog-body">
+        <div>
+          <p class="eyebrow">Edit Source</p>
+          <h3 id="dialogTitle">Channel</h3>
+        </div>
+        <input id="editChannelId" type="hidden">
+        <label>
+          URL
+          <input id="editChannelUrl" type="url" required>
+        </label>
+        <label>
+          Label
+          <input id="editChannelLabel" type="text">
+        </label>
+        <label>
+          Playlist limit
+          <input id="editChannelLimit" type="number" min="0" step="1">
+        </label>
+        <label>
+          Format override
+          <input id="editChannelFormat" type="text" placeholder="Leave blank for default">
+        </label>
+        <label class="switch"><input id="editChannelEnabled" type="checkbox"><span>Enabled</span></label>
+        <div class="button-row right">
+          <button value="cancel">Cancel</button>
+          <button id="saveChannelEdit" value="default" class="primary">Save</button>
+        </div>
+      </form>
+    </dialog>
 
     <div id="toast" role="status" aria-live="polite"></div>
     <script src="/static/app.js"></script>

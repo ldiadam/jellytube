@@ -54,13 +54,17 @@ Downloaded videos, metadata, thumbnails, cookies, and archive data live in:
 ### Dashboard Features
 
 - add/remove YouTube channel or playlist URLs
+- edit source labels, URLs, enabled state, per-source playlist limits, and format overrides
 - enable/disable individual sources
-- run sync immediately
+- run all sources or a single source immediately
 - stop a running sync
+- skip/reset the next scheduled run
 - set schedule interval, default 6 hours
-- paste Netscape-format YouTube cookies
+- create, update, activate, and delete Netscape-format YouTube cookie profiles
+- configure yt-dlp format selector, merge format, archive path, output template, metadata/thumbnail behavior, and request sleep
 - view sync logs
-- track downloaded video, metadata, and thumbnail counts
+- clear logs and clear the yt-dlp download archive
+- track downloaded video, metadata, thumbnail, storage size, and recent output files
 
 ### Jellyfin Library
 
