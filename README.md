@@ -1,4 +1,121 @@
-# Jellyfin YouTube Channel Cache Plugin
+# JellyTube
+
+JellyTube now has two parts:
+
+- `dashboard/`: the useful Docker sidecar. It manages YouTube channels/playlists, cookies, schedule, manual sync, and logs.
+- `Jellyfin.Plugin.YouTubeChannelCache/`: the earlier Jellyfin plugin scaffold. It can stay installed, but it is not required for the practical ZimaOS workflow.
+
+## ZimaOS Dashboard
+
+Build the dashboard image directly from GitHub on ZimaOS:
+
+```bash
+docker build -t jellytube-dashboard:local https://github.com/ldiadam/jellytube.git#main:dashboard
+```
+
+Stop the old one-command sync container if it exists:
+
+```bash
+docker rm -f youtube-cache-sync
+```
+
+Start the dashboard:
+
+```bash
+mkdir -p /media/sdb1/YouTube-dashboard
+
+docker run -d \
+  --name jellytube-dashboard \
+  --restart unless-stopped \
+  -p 8088:8080 \
+  -v /media/sdb1/YouTube:/youtube \
+  -v /media/sdb1/YouTube-dashboard:/config \
+  jellytube-dashboard:local
+```
+
+Open:
+
+```text
+http://ZIMAOS_IP:8088
+```
+
+The dashboard stores its config and logs in:
+
+```text
+/media/sdb1/YouTube-dashboard
+```
+
+Downloaded videos, metadata, thumbnails, cookies, and archive data live in:
+
+```text
+/media/sdb1/YouTube
+```
+
+### Dashboard Features
+
+- add/remove YouTube channel or playlist URLs
+- enable/disable individual sources
+- run sync immediately
+- stop a running sync
+- set schedule interval, default 6 hours
+- paste Netscape-format YouTube cookies
+- view sync logs
+- track downloaded video, metadata, and thumbnail counts
+
+### Jellyfin Library
+
+Your ZimaOS mount already maps:
+
+```text
+/media/sdb1/YouTube -> /cache/youtube-channels
+```
+
+In Jellyfin, add this as a normal media library:
+
+```text
+Dashboard -> Libraries -> Add Media Library
+Folder: /cache/youtube-channels
+Content type: Other Videos
+```
+
+If the old Jellyfin plugin is still installed, set:
+
+```text
+Cache Directory: /cache/youtube-channels
+Enable scheduled refresh: off
+```
+
+The dashboard is now the downloader and scheduler.
+
+### Dashboard Maintenance
+
+View logs:
+
+```bash
+docker logs -f jellytube-dashboard
+```
+
+Restart:
+
+```bash
+docker restart jellytube-dashboard
+```
+
+Upgrade after pushing changes to GitHub:
+
+```bash
+docker build -t jellytube-dashboard:local https://github.com/ldiadam/jellytube.git#main:dashboard
+docker rm -f jellytube-dashboard
+docker run -d \
+  --name jellytube-dashboard \
+  --restart unless-stopped \
+  -p 8088:8080 \
+  -v /media/sdb1/YouTube:/youtube \
+  -v /media/sdb1/YouTube-dashboard:/config \
+  jellytube-dashboard:local
+```
+
+## Jellyfin Plugin Scaffold
 
 This is a Jellyfin metadata/general plugin scaffold that reads and refreshes YouTube channel metadata through a local cache. It is intended for setups where TubeSync, TubeArchivist, `yt-dlp`, or another worker writes channel data and media to local paths Jellyfin can see.
 

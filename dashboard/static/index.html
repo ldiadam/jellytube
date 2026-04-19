@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>YouTube Sync Dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <aside class="rail">
+        <div>
+          <p class="eyebrow">JellyTube</p>
+          <h1>YouTube Sync</h1>
+        </div>
+        <nav>
+          <a href="#status">Status</a>
+          <a href="#channels">Channels</a>
+          <a href="#settings">Schedule</a>
+          <a href="#logs">Logs</a>
+        </nav>
+      </aside>
+
+      <section class="workspace">
+        <header class="topbar" id="status">
+          <div>
+            <p class="eyebrow">Sidecar Dashboard</p>
+            <h2 id="runState">Loading</h2>
+          </div>
+          <div class="actions">
+            <button id="runNow" class="primary">Run now</button>
+            <button id="stopRun">Stop</button>
+          </div>
+        </header>
+
+        <section class="metrics" aria-label="Sync metrics">
+          <div class="metric">
+            <span>Next Run</span>
+            <strong id="nextRun">-</strong>
+          </div>
+          <div class="metric">
+            <span>Videos</span>
+            <strong id="videoCount">0</strong>
+          </div>
+          <div class="metric">
+            <span>Metadata</span>
+            <strong id="metadataCount">0</strong>
+          </div>
+          <div class="metric">
+            <span>Cookies</span>
+            <strong id="cookiesState">Unknown</strong>
+          </div>
+        </section>
+
+        <section class="split" id="channels">
+          <div class="panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Sources</p>
+                <h3>Channels and Playlists</h3>
+              </div>
+            </div>
+            <form id="channelForm" class="inline-form">
+              <input id="channelUrl" type="url" placeholder="https://www.youtube.com/@channel or playlist URL" required>
+              <input id="channelLabel" type="text" placeholder="Label">
+              <button type="submit" class="primary">Add</button>
+            </form>
+            <div id="channelList" class="list"></div>
+          </div>
+
+          <div class="panel" id="settings">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Automation</p>
+                <h3>Schedule and Download</h3>
+              </div>
+              <label class="switch">
+                <input id="autoSync" type="checkbox">
+                <span>Auto</span>
+              </label>
+            </div>
+            <div class="settings-grid">
+              <label>
+                Interval hours
+                <input id="intervalHours" type="number" min="0.25" step="0.25">
+              </label>
+              <label>
+                Playlist limit
+                <input id="playlistEnd" type="number" min="0" step="1">
+              </label>
+              <label>
+                Request sleep seconds
+                <input id="sleepSeconds" type="number" min="0" step="1">
+              </label>
+              <label>
+                Format selector
+                <input id="formatSelector" type="text">
+              </label>
+            </div>
+            <label class="wide-label">
+              Output template
+              <input id="outputTemplate" type="text">
+            </label>
+            <button id="saveSettings" class="primary">Save settings</button>
+          </div>
+        </section>
+
+        <section class="split">
+          <div class="panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Authentication</p>
+                <h3>YouTube Cookies</h3>
+              </div>
+            </div>
+            <p class="hint" id="cookiesPath">-</p>
+            <textarea id="cookiesText" placeholder="# Netscape HTTP Cookie File&#10;.youtube.com	TRUE	/	TRUE	..."></textarea>
+            <div class="actions left">
+              <button id="saveCookies" class="primary">Save cookies</button>
+              <button id="clearCookiesText">Clear text</button>
+            </div>
+          </div>
+
+          <div class="panel" id="logs">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Runtime</p>
+                <h3>Logs</h3>
+              </div>
+              <button id="refreshLogs">Refresh</button>
+            </div>
+            <pre id="logOutput"></pre>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script src="/static/app.js"></script>
+  </body>
+</html>
