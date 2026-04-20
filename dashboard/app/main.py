@@ -203,6 +203,14 @@ def load_config() -> AppConfig:
 
     raw = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
     legacy_cookies_path = raw.get("cookiesPath")
+    needs_save = False
+    if "skipUpcomingPremieres" not in raw:
+        raw["skipUpcomingPremieres"] = True
+        needs_save = True
+    if "ignorePremiereErrors" not in raw:
+        raw["ignorePremiereErrors"] = True
+        needs_save = True
+
     config = AppConfig.model_validate(raw)
     if legacy_cookies_path and not config.cookies:
         profile = CookieProfile(
@@ -215,6 +223,9 @@ def load_config() -> AppConfig:
         refresh_cookie_profile(profile)
         config.cookies.append(profile)
         config.activeCookieId = profile.id
+        needs_save = True
+
+    if needs_save:
         save_config(config)
 
     return normalize_config(config)

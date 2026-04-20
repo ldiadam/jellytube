@@ -195,8 +195,8 @@ function renderConfig() {
   $("writeThumbnail").checked = state.config.writeThumbnail;
   $("convertThumbnails").checked = state.config.convertThumbnails;
   $("embedMetadata").checked = state.config.embedMetadata;
-  $("skipUpcomingPremieres").checked = state.config.skipUpcomingPremieres;
-  $("ignorePremiereErrors").checked = state.config.ignorePremiereErrors;
+  $("skipUpcomingPremieres").checked = state.config.skipUpcomingPremieres !== false;
+  $("ignorePremiereErrors").checked = state.config.ignorePremiereErrors !== false;
   renderChannels();
 }
 
