@@ -363,7 +363,7 @@ def build_command(config: AppConfig, channel: Channel) -> list[str]:
     if playlist_end > 0:
         command.extend(["--playlist-end", str(playlist_end)])
     if config.skipUpcomingPremieres:
-        command.extend(["--match-filter", "live_status != is_upcoming"])
+        command.extend(["--match-filter", "live_status = not_live"])
 
     cookie = active_cookie(config)
     if cookie and Path(cookie.path).exists():
