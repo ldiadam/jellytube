@@ -62,6 +62,7 @@ Downloaded videos, metadata, thumbnails, cookies, and archive data live in:
 - set schedule interval, default 6 hours
 - create, update, activate, and delete Netscape-format YouTube cookie profiles
 - configure yt-dlp format selector, merge format, archive path, output template, metadata/thumbnail behavior, and request sleep
+- skip upcoming premieres and treat premiere-only failures as non-fatal
 - view sync logs
 - clear logs and clear the yt-dlp download archive
 - track downloaded video, metadata, thumbnail, storage size, and recent output files

@@ -195,6 +195,8 @@ function renderConfig() {
   $("writeThumbnail").checked = state.config.writeThumbnail;
   $("convertThumbnails").checked = state.config.convertThumbnails;
   $("embedMetadata").checked = state.config.embedMetadata;
+  $("skipUpcomingPremieres").checked = state.config.skipUpcomingPremieres;
+  $("ignorePremiereErrors").checked = state.config.ignorePremiereErrors;
   renderChannels();
 }
 
@@ -301,6 +303,8 @@ function collectDownload() {
     writeThumbnail: $("writeThumbnail").checked,
     convertThumbnails: $("convertThumbnails").checked,
     embedMetadata: $("embedMetadata").checked,
+    skipUpcomingPremieres: $("skipUpcomingPremieres").checked,
+    ignorePremiereErrors: $("ignorePremiereErrors").checked,
   };
 }
 

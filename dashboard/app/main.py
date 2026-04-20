@@ -64,6 +64,8 @@ class AppConfig(BaseModel):
     convertThumbnails: bool = True
     mergeOutputFormat: str = "mp4"
     maxRecentFiles: int = 24
+    skipUpcomingPremieres: bool = True
+    ignorePremiereErrors: bool = True
 
 
 class ConfigUpdate(BaseModel):
@@ -83,6 +85,8 @@ class ConfigUpdate(BaseModel):
     convertThumbnails: bool | None = None
     mergeOutputFormat: str | None = None
     maxRecentFiles: int | None = None
+    skipUpcomingPremieres: bool | None = None
+    ignorePremiereErrors: bool | None = None
 
 
 class ChannelCreate(BaseModel):
@@ -347,6 +351,8 @@ def build_command(config: AppConfig, channel: Channel) -> list[str]:
         command.extend(["--sleep-requests", str(config.sleepSeconds)])
     if playlist_end > 0:
         command.extend(["--playlist-end", str(playlist_end)])
+    if config.skipUpcomingPremieres:
+        command.extend(["--match-filter", "live_status != is_upcoming"])
 
     cookie = active_cookie(config)
     if cookie and Path(cookie.path).exists():
@@ -356,13 +362,34 @@ def build_command(config: AppConfig, channel: Channel) -> list[str]:
     return command
 
 
-async def pipe_stream(stream: asyncio.StreamReader, prefix: str) -> None:
+def is_premiere_error(line: str) -> bool:
+    normalized = line.lower()
+    return (
+        "premieres in" in normalized
+        or "premiere has not started" in normalized
+        or "this live event will begin" in normalized
+        or "live event will begin" in normalized
+    )
+
+
+def errors_are_ignorable_premieres(error_lines: list[str]) -> bool:
+    if not error_lines:
+        return False
+
+    return all(is_premiere_error(line) for line in error_lines)
+
+
+async def pipe_stream(stream: asyncio.StreamReader, prefix: str, error_lines: list[str] | None = None) -> None:
     while True:
         line = await stream.readline()
         if not line:
             break
 
-        append_log(f"{prefix}{line.decode(errors='replace').rstrip()}")
+        decoded = line.decode(errors="replace").rstrip()
+        if decoded.startswith("ERROR:") and error_lines is not None:
+            error_lines.append(decoded)
+
+        append_log(f"{prefix}{decoded}")
 
 
 def update_channel_result(channel_id: str, success: bool, exit_code: int | None) -> None:
@@ -433,15 +460,24 @@ async def run_sync(reason: str, channel_id: str | None = None) -> None:
             )
             state.process = process
 
-            stdout_task = asyncio.create_task(pipe_stream(process.stdout, ""))
-            stderr_task = asyncio.create_task(pipe_stream(process.stderr, ""))
+            error_lines: list[str] = []
+            stdout_task = asyncio.create_task(pipe_stream(process.stdout, "", error_lines))
+            stderr_task = asyncio.create_task(pipe_stream(process.stderr, "", error_lines))
             exit_code = await process.wait()
             await asyncio.gather(stdout_task, stderr_task)
 
             state.process = None
-            channel_success = exit_code == 0
+            premiere_only_failure = (
+                exit_code != 0
+                and config.ignorePremiereErrors
+                and errors_are_ignorable_premieres(error_lines)
+            )
+            channel_success = exit_code == 0 or premiere_only_failure
             update_channel_result(channel.id, channel_success, exit_code)
-            if not channel_success:
+            if premiere_only_failure:
+                append_log(f"Ignored upcoming premiere errors for channel: {channel.url}")
+                append_log(f"Channel finished: {channel.url}")
+            elif not channel_success:
                 success = False
                 append_log(f"Channel finished with exit code {exit_code}: {channel.url}")
             else:
