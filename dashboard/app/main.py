@@ -383,11 +383,20 @@ def is_premiere_error(line: str) -> bool:
     )
 
 
+def is_transient_youtube_media_error(line: str) -> bool:
+    normalized = line.lower()
+    return (
+        "unable to download video data: http error 403: forbidden" in normalized
+        or "failed to open segment" in normalized
+        or "yt_premiere_broadcast" in normalized
+    )
+
+
 def errors_are_ignorable_premieres(error_lines: list[str]) -> bool:
     if not error_lines:
         return False
 
-    return all(is_premiere_error(line) for line in error_lines)
+    return all(is_premiere_error(line) or is_transient_youtube_media_error(line) for line in error_lines)
 
 
 async def pipe_stream(stream: asyncio.StreamReader, prefix: str, error_lines: list[str] | None = None) -> None:
@@ -486,7 +495,7 @@ async def run_sync(reason: str, channel_id: str | None = None) -> None:
             channel_success = exit_code == 0 or premiere_only_failure
             update_channel_result(channel.id, channel_success, exit_code)
             if premiere_only_failure:
-                append_log(f"Ignored upcoming premiere errors for channel: {channel.url}")
+                append_log(f"Ignored transient premiere/media errors for channel: {channel.url}")
                 append_log(f"Channel finished: {channel.url}")
             elif not channel_success:
                 success = False
